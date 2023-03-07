@@ -1,0 +1,13 @@
+body{
+    background-color: rgb(88, 122, 120);
+}
+
+h1{
+    color: greenyellow;
+}
+
+@media (min-width: 1200px){
+    body{
+        background-color: lightblue;
+    }
+}
