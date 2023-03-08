@@ -10,12 +10,12 @@ ESP8266WebServer server(80);
 // set wifi details
 
 // HOME
-//const char* ssid = "SKYXIENC";
-//const char* password = "7GQiqMQT6zdB";
+const char* ssid = "SKYXIENC";
+const char* password = "7GQiqMQT6zdB";
 
 // OFFICE
-const char* ssid = "TNCAP24C3C5";
-const char* password = "7EFEF61DDA";
+// const char* ssid = "TNCAP24C3C5";
+// const char* password = "7EFEF61DDA";
 
 int sensePin = 2;
 
@@ -25,7 +25,14 @@ DHT HT(sensePin, Type);
 int temp = 0;
 int humidity = 0;
 
+// initialise pins for sound sensor light claps
+int led_pin = 13;
+int raw_value = A0;
+
 void setup() {
+
+  // setup pinmode for sound sensor functionality
+  pinMode(raw_value, INPUT);
 
   // connect tothe wifi network
   WiFi.begin(ssid, password);
@@ -59,8 +66,23 @@ void setup() {
 
 void loop() {
 
+  // get sound sensor values
+  int val_analog = analogRead(raw_value);
+
+///////// debug sound sensor
+  if (raw_value > 18) {
+    Serial.print(raw_value);
+    Serial.println("\t");  
+  }
+  else {
+    Serial.println("Too quiet");
+  }
+  
+
+  // get DHT11 sensor values
   readTempHumidity();
 
+///////// debug DHT11 data
 //  Serial.print("Temperature: ");
 //  Serial.print(HT.readTemperature());
 //  Serial.print("C ");
@@ -91,11 +113,11 @@ void get_index() {
   html += "<body> <h1>The EcoHomeHealth Dashboard</h1>";
   html += "<p> Welcome to the Future of Efficiency</p>";
   html += "<div> <p> <strong> The Temperature of sensor 1 is: ";
-//  html += HT.readTemperature();
+  // html += HT.readTemperature();
   html += temp;
   html += " C</strong> </p> </div>";
   html += "<div> <p> <strong> The Humidity of sensor 1 is: ";
-  //  html += HT.readHumidity();
+  // html += HT.readHumidity();
   html += humidity;
   html += " %</strong> </p> </div>";
   //// enter ternery operator here to say if the temperature is above or below threshold;
