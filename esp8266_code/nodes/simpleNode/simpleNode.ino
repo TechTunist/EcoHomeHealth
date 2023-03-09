@@ -1,6 +1,11 @@
+// main internal node
+// has DHT11, servo, motor and LED to display temperature
+
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include "DHT.h"
+#include <ArduinoJson.h>
+#include <Servo.h>
 
 #define Type DHT11
 
@@ -8,14 +13,13 @@
 ESP8266WebServer server(80);
 
 // set wifi details
-
 // HOME
-const char* ssid = "SKYXIENC";
-const char* password = "7GQiqMQT6zdB";
+//const char* ssid = "SKYXIENC";
+//const char* password = "7GQiqMQT6zdB";
 
 // OFFICE
-// const char* ssid = "TNCAP24C3C5";
-// const char* password = "7EFEF61DDA";
+ const char* ssid = "TNCAP24C3C5";
+ const char* password = "7EFEF61DDA";
 
 int sensePin = 2;
 
@@ -29,6 +33,12 @@ int humidity = 0;
 int led_pin = 13;
 int raw_value = A0;
 
+// Instantiate JsonDocument object
+DynamicJsonDocument doc(1024);
+
+// instantiate servo object
+Servo myServo;
+
 void setup() {
 
   // setup pinmode for sound sensor functionality
@@ -39,7 +49,7 @@ void setup() {
 
   pinMode(sensePin, INPUT_PULLUP);
   
-  Serial.begin(115200);
+  Serial.begin(9600);
   Serial.println();
 
   // wait for connection
@@ -57,10 +67,16 @@ void setup() {
 
   server.on("/", get_index); // get the index page
   server.on("/setLEDStatus", setLEDStatus);
+  
+  // get json data
+  server.on("/json", get_json);
 
   // start the server
   server.begin();
   Serial.println("Server Listening");
+
+  // initialise servo
+  myServo.attach(0);
 
 }
 
@@ -96,7 +112,69 @@ void loop() {
 
   // handleing of incoming client requests
   server.handleClient();
+
+  // call function to handle servo movement
+  servoMovement();
 }
+
+
+//////// utility functions //////////
+
+// function to handle servo movement
+void servoMovement() {
+
+  // set the servo to 0 degrees
+  myServo.write(0);
+  delay(500);
+
+  // set the servo to 45 degrees
+  myServo.write(45);
+  delay(500);
+
+  // set the servo to 90 degrees
+  myServo.write(90);
+  delay(500);
+
+  // set the servo to 180 degrees
+  myServo.write(180);
+  delay(500);
+}
+
+// function to get json data and return http response with json data
+void get_json() {
+
+  // get json data from dht
+  jsonDHTSensor();
+
+  // make json data ready for http request
+  String jsonStr;
+  serializeJsonPretty(doc, jsonStr);
+
+  // send json data in http response
+  server.send(200, "application/json", jsonStr);
+}
+
+// function to convert DHT data to json
+void jsonDHTSensor(){
+  
+  // add json request data
+  doc["Content-Type"] = "application/json";
+  doc["Status"] = 200;
+
+  // add DHT sensor JSON object data
+  JsonObject DHTSensor = doc.createNestedObject("Sensor");
+  DHTSensor["sensorName"] = "DHT11 Sensor";
+
+  // add DHT sensor data as an array
+  JsonArray pins = DHTSensor.createNestedArray("sensorPins");
+
+  // add each pin associated with that sensor
+  pins.add(sensePin);
+
+  // set the value for the json sensor object
+  DHTSensor["Temperature in Celsius"] = temp;
+  DHTSensor["Humidity"] = humidity;
+ }  
 
 
 // function to return temperature & humidity sensor readings
