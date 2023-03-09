@@ -1,6 +1,11 @@
 // main internal node
 // has DHT11, servo, motor and LED to display temperature
 
+// ToDO: 
+// add a fan that is powered off a pin that is pulled HIGH if the temp
+// variable is above a certain value
+// troubleshoot motors here: https://simple-circuit.com/esp8266-nodemcu-dc-motor-control-l293d/
+
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include "DHT.h"
@@ -14,24 +19,25 @@ ESP8266WebServer server(80);
 
 // set wifi details
 // HOME
-//const char* ssid = "SKYXIENC";
-//const char* password = "7GQiqMQT6zdB";
+const char* ssid = "SKYXIENC";
+const char* password = "7GQiqMQT6zdB";
 
 // OFFICE
- const char* ssid = "TNCAP24C3C5";
- const char* password = "7EFEF61DDA";
+//  const char* ssid = "TNCAP24C3C5";
+//  const char* password = "7EFEF61DDA";
 
+// set pin for sensing DHT11
 int sensePin = 2;
+
+// set pin for turning fan on / off
+int fanPin1 = 10;
+int fanPin2 = 9;
 
 DHT HT(sensePin, Type);
 
 // initialise temp and humidity global variables
 int temp = 0;
 int humidity = 0;
-
-// initialise pins for sound sensor light claps
-int led_pin = 13;
-int raw_value = A0;
 
 // Instantiate JsonDocument object
 DynamicJsonDocument doc(1024);
@@ -41,10 +47,10 @@ Servo myServo;
 
 void setup() {
 
-  // setup pinmode for sound sensor functionality
-  pinMode(raw_value, INPUT);
+  // define thepinmode for fan pins
+  pinMode(fanPin1, OUTPUT);
 
-  // connect tothe wifi network
+  // connect to the wifi network
   WiFi.begin(ssid, password);
 
   pinMode(sensePin, INPUT_PULLUP);
@@ -82,17 +88,14 @@ void setup() {
 
 void loop() {
 
-  // get sound sensor values
-  int val_analog = analogRead(raw_value);
-
-///////// debug sound sensor
-  if (raw_value > 18) {
-    Serial.print(raw_value);
-    Serial.println("\t");  
-  }
-  else {
-    Serial.println("Too quiet");
-  }
+  // debug fan control
+  digitalWrite(fanPin1, HIGH);
+  Serial.println("fan turned on");
+  delay(2000);
+  digitalWrite(fanPin1, LOW);
+  Serial.println("fan turned off");
+  delay(2000);
+  
   
 
   // get DHT11 sensor values
