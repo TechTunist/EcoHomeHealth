@@ -8,23 +8,110 @@
 
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include "SimpleEspNowConnection.h"
 #include "DHT.h"
 #include <ArduinoJson.h>
 #include <Servo.h>
 
 #define Type DHT11
 
+
+
+
+
+
+SimpleEspNowConnection simpleEspConnection(SimpleEspNowRole::SERVER);
+
+// input string for serial monitor input
+String inputString;
+
+// initialise variable for client address (sent on handshake)
+String clientAddress;
+
+// define data structure for message received
+typedef struct dhtStruct {
+  char type;
+  float temp;
+  float humidity;
+} dhtStruct;
+
+dhtStruct globalStruct;
+
+void OnMessage(uint8_t* ad, const uint8_t* message, size_t len)
+{
+  if((char)message[0] == '1')
+  {
+    // initialise data structure
+    dhtStruct dhtData;
+
+    // copy sent data into initialised data structure
+    memcpy(&dhtData, message, len);
+    memcpy(&globalStruct, message, len);
+
+     // print sensor identifier (for dashboard recognition) and data
+    Serial.printf("%f,%f,1\n", dhtData.temp, dhtData.humidity);
+  }
+  
+  else if((char)message[0] == '2')
+  {
+    dhtStruct dhtData;
+  
+    memcpy(&dhtData, message, len);   
+    Serial.printf("%f,%f,2\n", dhtData.temp, dhtData.humidity);
+  }
+  
+  else if((char)message[0] == '3')
+  {
+    dhtStruct dhtData;
+  
+    memcpy(&dhtData, message, len);   
+    Serial.printf("%f,%f,3\n", dhtData.temp, dhtData.humidity);
+  }
+  
+  else if((char)message[0] == '4')
+  {
+    dhtStruct dhtData;
+  
+    memcpy(&dhtData, message, len);   
+    Serial.printf("%f,%f,4\n", dhtData.temp, dhtData.humidity);
+  }
+  
+  else
+    Serial.printf("MESSAGE:[%d]%s from %s\n", len, (char *)message, simpleEspConnection.macToStr(ad).c_str());
+}
+
+void OnPaired(uint8_t *ga, String ad)
+{
+  Serial.println("EspNowConnection : Client '"+ad+"' paired! ");
+  simpleEspConnection.endPairing();
+
+  // store the client address obtained from the callback message after handshake
+  clientAddress = ad;
+}
+
+void OnConnected(uint8_t *ga, String ad)
+{
+  Serial.println("EspNowConnection : Client '"+ad+"' connected! ");
+
+  simpleEspConnection.sendMessage((uint8_t *)"Message at OnConnected from Server", 34, ad);
+}
+
+
+
+
+
+
 // set the port for the webserver
 ESP8266WebServer server(80);
 
 // set wifi details
 // HOME
-const char* ssid = "SKYXIENC";
-const char* password = "7GQiqMQT6zdB";
+//const char* ssid = "SKYXIENC";
+//const char* password = "7GQiqMQT6zdB";
 
 // OFFICE
-//  const char* ssid = "TNCAP24C3C5";
-//  const char* password = "7EFEF61DDA";
+  const char* ssid = "TNCAP24C3C5";
+  const char* password = "7EFEF61DDA";
 
 // set pin for sensing DHT11
 int sensePin = 2;
@@ -47,7 +134,18 @@ Servo myServo;
 
 void setup() {
 
-  // define thepinmode for fan pins
+
+
+  simpleEspConnection.begin();
+  simpleEspConnection.onMessage(&OnMessage);  
+  simpleEspConnection.onPaired(&OnPaired);  
+  simpleEspConnection.onConnected(&OnConnected);
+
+
+
+  
+
+  // define the pinmode for fan pins
   pinMode(fanPin1, OUTPUT);
 
   // connect to the wifi network
@@ -87,16 +185,11 @@ void setup() {
 }
 
 void loop() {
-
-  // debug fan control
-  digitalWrite(fanPin1, HIGH);
-  Serial.println("fan turned on");
-  delay(2000);
-  digitalWrite(fanPin1, LOW);
-  Serial.println("fan turned off");
-  delay(2000);
   
-  
+//  // get mac address
+//  Serial.println();
+//  Serial.println("MAC Address: ");
+//  Serial.print(WiFi.macAddress());
 
   // get DHT11 sensor values
   readTempHumidity();
@@ -118,6 +211,31 @@ void loop() {
 
   // call function to handle servo movement
   servoMovement();
+
+
+  // needed to manage the communication in the background!
+  simpleEspConnection.loop();
+
+  // start pairing automatically on power up
+  if(!simpleEspConnection.startPairing(30))
+  {
+    simpleEspConnection.startPairing(30);
+  }
+
+  // in case devices arent paired / pairing
+  while (Serial.available()) 
+  {
+    char inChar = (char)Serial.read();
+    if (inChar == '\n') 
+    {
+      Serial.println(inputString);
+
+      if(inputString == "startpair")
+      {
+        simpleEspConnection.startPairing(30);
+      }
+    }
+  }
 }
 
 
@@ -193,11 +311,11 @@ void get_index() {
   html += "<head><meta http-equiv=\"refresh\" content=\"2\"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"></head>";
   html += "<body> <h1>The EcoHomeHealth Dashboard</h1>";
   html += "<p> Welcome to the Future of Efficiency</p>";
-  html += "<div> <p> <strong> The Temperature of sensor 1 is: ";
+  html += "<div> <p> <strong> The Temperature of internal sensor 1 is: ";
   // html += HT.readTemperature();
   html += temp;
   html += " C</strong> </p> </div>";
-  html += "<div> <p> <strong> The Humidity of sensor 1 is: ";
+  html += "<div> <p> <strong> The Humidity of internal sensor 1 is: ";
   // html += HT.readHumidity();
   html += humidity;
   html += " %</strong> </p> </div>";
@@ -205,6 +323,12 @@ void get_index() {
   // isAboveThreshold()?"is currently above threshold":"is currently below threshold";
   html += "<a href=\"/setLEDStatus?s=0\" target=\"_blank\"\"\"><button>Turn Off </button></a>";
   html += "<a href=\"/setLEDStatus?s=1\" target=\"_blank\"\"\"><button>Turn On </button></a>";
+
+  html += "<div> <p> <strong> The Temperature of satellite sensor 1 is: ";
+  // html += HT.readTemperature();
+  html += globalStruct.temp;
+  html += " C</strong> </p> </div>";
+  
   html += "</body> </html>";
 
   // print a welcoming message on the index page
