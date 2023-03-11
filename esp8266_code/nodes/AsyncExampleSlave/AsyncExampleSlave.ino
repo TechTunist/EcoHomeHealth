@@ -4,7 +4,7 @@
 #include <Adafruit_Sensor.h>
 
 // Set your Board ID (ESP32 Sender #1 = BOARD_ID 1, ESP32 Sender #2 = BOARD_ID 2, etc)
-#define BOARD_ID 2
+#define BOARD_ID 3
 
 Adafruit_BMP280 bmp; 
 
@@ -14,10 +14,11 @@ uint8_t broadcastAddress[] = {0x40, 0x91, 0x51, 0x4F, 0x0A, 0x56};
 //Structure example to send data
 //Must match the receiver structure
 typedef struct struct_message {
-    int id;
-    float temp;
-    float hum;
-    int readingId;
+  int id;
+  float temp;
+  float pressure;
+  float altitude;
+  int readingId;
 } struct_message;
 
 //Create a struct_message called myData
@@ -29,7 +30,12 @@ const long interval = 10000;        // Interval at which to publish sensor readi
 unsigned int readingId = 0;
 
 // Insert your SSID
-constexpr char WIFI_SSID[] = "TNCAP24C3C5";
+
+// Office
+// constexpr char WIFI_SSID[] = "TNCAP24C3C5";
+
+// Home
+constexpr char WIFI_SSID[] = "SKYXIENC";
 
 int32_t getWiFiChannel(const char *ssid) {
   if (int32_t n = WiFi.scanNetworks()) {
@@ -55,8 +61,13 @@ float readTemperature() {
 }
 
 float readPressure() {
-  float h = bmp.readPressure();
-  return h;
+  float p = bmp.readPressure();
+  return p;
+}
+
+float readAltitude() {
+  float a = bmp.readAltitude();
+  return a;
 }
 
 // Callback when data is sent
@@ -94,7 +105,7 @@ void setup() {
 
   // Once ESPNow is successfully Init, we will register for Send CB to
   // get the status of Trasnmitted packet
-   esp_now_set_self_role(ESP_NOW_ROLE_CONTROLLER);
+  esp_now_set_self_role(ESP_NOW_ROLE_CONTROLLER);
 
   esp_now_register_send_cb(OnDataSent);
   
@@ -109,7 +120,8 @@ void loop() {
     //Set values to send
     myData.id = BOARD_ID;
     myData.temp = readTemperature();
-    myData.hum = readPressure();
+    myData.pressure = readPressure();
+    myData.altitude = readAltitude();
     myData.readingId = readingId++;
      
     esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
