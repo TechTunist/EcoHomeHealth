@@ -15,11 +15,6 @@
 
 #define Type DHT11
 
-
-
-
-
-
 SimpleEspNowConnection simpleEspConnection(SimpleEspNowRole::SERVER);
 
 // input string for serial monitor input
