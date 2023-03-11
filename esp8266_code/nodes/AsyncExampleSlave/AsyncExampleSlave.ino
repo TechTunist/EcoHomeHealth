@@ -2,9 +2,19 @@
 #include <ESP8266WiFi.h>
 #include <Adafruit_BMP280.h>
 #include <Adafruit_Sensor.h>
+#include "DHT.h"
 
-// Set your Board ID (ESP32 Sender #1 = BOARD_ID 1, ESP32 Sender #2 = BOARD_ID 2, etc)
-#define BOARD_ID 3
+// Set the ID so the receiver web server distinguishes between different senders 
+#define BOARD_ID 2
+
+// define DHT object type
+#define Type DHT11
+
+// set pin for sensing DHT11
+int sensePin = 2;
+
+// instantiate DHT11 object
+DHT HT(sensePin, Type);
 
 Adafruit_BMP280 bmp; 
 
@@ -18,6 +28,7 @@ typedef struct struct_message {
   float temp;
   float pressure;
   float altitude;
+  float humidity;
   int readingId;
 } struct_message;
 
@@ -32,10 +43,10 @@ unsigned int readingId = 0;
 // Insert your SSID
 
 // Office
-// constexpr char WIFI_SSID[] = "TNCAP24C3C5";
+ constexpr char WIFI_SSID[] = "TNCAP24C3C5";
 
 // Home
-constexpr char WIFI_SSID[] = "SKYXIENC";
+//constexpr char WIFI_SSID[] = "SKYXIENC";
 
 int32_t getWiFiChannel(const char *ssid) {
   if (int32_t n = WiFi.scanNetworks()) {
@@ -70,6 +81,11 @@ float readAltitude() {
   return a;
 }
 
+float readHumidity() {
+  float h = HT.readHumidity();
+  return h;
+  }
+
 // Callback when data is sent
 void OnDataSent(uint8_t *mac_addr, uint8_t sendStatus) {
   Serial.print("Last Packet Send Status: ");
@@ -84,7 +100,13 @@ void OnDataSent(uint8_t *mac_addr, uint8_t sendStatus) {
 void setup() {
   //Init Serial Monitor
   Serial.begin(115200);
-  initbmp(); 
+  initbmp();
+
+  // set pinmode for DHT11
+  pinMode(sensePin, INPUT_PULLUP);
+
+  // begin sensing DHT11
+  HT.begin();
 
   // Set device as a Wi-Fi Station and set channel
   WiFi.mode(WIFI_STA);
@@ -122,6 +144,7 @@ void loop() {
     myData.temp = readTemperature();
     myData.pressure = readPressure();
     myData.altitude = readAltitude();
+    myData.humidity = readHumidity();
     myData.readingId = readingId++;
      
     esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));

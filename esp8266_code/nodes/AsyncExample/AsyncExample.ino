@@ -12,12 +12,14 @@ handles espnow connections to receive data packets from satellite nodes.
 
 // Replace with your network credentials (STATION)
 // OFFICE
-// const char* ssid = "TNCAP24C3C5";
-// const char* password = "7EFEF61DDA";
+const char* ssid = "TNCAP24C3C5";
+const char* password = "7EFEF61DDA";
+//const char* ssid = "TP_9958";
+//const char* password = "15295316";
 
 // HOME
-const char* ssid = "SKYXIENC";
-const char* password = "7GQiqMQT6zdB";
+//const char* ssid = "SKYXIENC";
+//const char* password = "7GQiqMQT6zdB";
 
 // Structure example to receive data
 // Must match the sender structure
@@ -26,7 +28,8 @@ typedef struct struct_message {
   float temp;
   float pressure;
   float altitude;
-  unsigned int readingId;
+  float humidity;
+  int readingId;
 } struct_message;
 
 struct_message satelliteData;
@@ -50,6 +53,7 @@ void OnDataRecv(uint8_t * mac_addr, uint8_t *incomingData, uint8_t len) {
   board["temperature"] = satelliteData.temp;
   board["pressure"] = satelliteData.pressure;
   board["altitude"] = satelliteData.altitude;
+  board["humidity"] = satelliteData.humidity;
   board["readingId"] = String(satelliteData.readingId);
   String jsonString = JSON.stringify(board);
   events.send(jsonString.c_str(), "new_data", millis());
@@ -60,6 +64,8 @@ void OnDataRecv(uint8_t * mac_addr, uint8_t *incomingData, uint8_t len) {
   // Serial.printf("a value: %4.2f \n", satelliteData.altitude);
   // Serial.printf("readingID value: %d \n", satelliteData.readingId);
   Serial.println(board["id"]);
+  Serial.println(board["id"]);
+  Serial.println(board["humidity"]);
   Serial.println(board["temperature"]);
   Serial.println(board["pressure"]);
   Serial.println(board["altitude"]);
@@ -69,9 +75,8 @@ void OnDataRecv(uint8_t * mac_addr, uint8_t *incomingData, uint8_t len) {
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML><html>
 <head>
-  <title>ESP-NOW DASHBOARD</title>
+  <title>EcoHomeHealth</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
 
   <style>
 
@@ -130,14 +135,9 @@ const char index_html[] PROGMEM = R"rawliteral(
     .item5 { grid-area: altitude; }
     .item6 { grid-area: footer; }
 
-    /* .reading { font-size: 2.8rem; } */
-    /* .timestamp { color: #bebebe; font-size: 1rem; } */
-    /* .card-title{ font-size: 1.2rem; font-weight : bold; } */
-    /* .card.temperature { color: #B10F2E; } */
-    /* .card.pressure { color: #50B8B4; } */
-
   </style>
 </head>
+
 <body>
   <div id="navbar">
     <h3>EcoHomeHealth</h3>
@@ -146,7 +146,8 @@ const char index_html[] PROGMEM = R"rawliteral(
   <div class="grid-container">
 
     <div class="node-grid">
-        <div class=" grid-item item1"><h4>Location: Living Room</h4></div>
+        <div class=" grid-item item1"><h4>Location: Living Room (Internal)</h4></div>
+        
         <div class="grid-item item2">Temp
             <p><span class="reading"><span id="t1"></span> &deg;C</span></p>
         </div>
@@ -167,7 +168,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     <br><br>
 
     <div class="node-grid">
-        <div class=" grid-item item1"><h4>Location: Kitchen</h4></div>
+        <div class=" grid-item item1"><h4>Location: Directly Outside Living Room (External)</h4></div>
         <div class="grid-item item2">Temp
             <p><span class="reading"><span id="t2"></span> &deg;C</span></p>
         </div>
@@ -184,28 +185,6 @@ const char index_html[] PROGMEM = R"rawliteral(
             <p class="timestamp">Last Reading: <span id="rt2"></span></p>
         </div>
     </div>
-
-    <br><br>
-
-    <div class="node-grid">
-        <div class=" grid-item item1"><h4>Location: Outside Living Room / Kitchen</h4></div>
-        <div class="grid-item item2">Temp
-            <p><span class="reading"><span id="t3"></span> &deg;C</span></p>
-        </div>
-        <div class="grid-item item3">Humidity
-            <p><span class="reading"><span id="h3"></span> %;</span></p>
-        </div>
-        <div class="grid-item item4">Pressure
-            <p><span class="reading"><span id="p3"></span> Pa;</span></p>
-        </div>
-        <div class="grid-item item5">Altitude
-            <p><span class="reading"><span id="a3"></span> m;</span></p>
-        </div>  
-        <div class="grid-item item6">
-            <p class="timestamp">Last Reading: <span id="rt3"></span></p>
-        </div>
-    </div>
-
   </div>
   
 
