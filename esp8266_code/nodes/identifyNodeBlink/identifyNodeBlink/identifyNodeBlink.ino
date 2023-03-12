@@ -1,4 +1,4 @@
-// code to control LED pin on the ESP 01S
+// code to control LED pin on the ESP 01S / 12-F
 String state;
 
 void setup() {

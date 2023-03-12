@@ -8,9 +8,18 @@ handles espnow connections to receive data packets from satellite nodes.
 #include <Arduino_JSON.h>
 #include "ESPAsyncWebServer.h"
 #include "ESPAsyncTCP.h"
+#include <ArduinoJson.h>
+#include "AsyncJson.h"
+
+DynamicJsonDocument board_one(1024);
+DynamicJsonDocument board_two(1024);
+
+// variable to keep track of which board sent the last readings
+int board_id;
+
+StaticJsonDocument<100> data;
 
 
-// Replace with your network credentials (STATION)
 // OFFICE
 const char* ssid = "TNCAP24C3C5";
 const char* password = "7EFEF61DDA";
@@ -20,6 +29,13 @@ const char* password = "7EFEF61DDA";
 // HOME
 //const char* ssid = "SKYXIENC";
 //const char* password = "7GQiqMQT6zdB";
+
+// set led pin
+const int led_board_one = 4; // D2
+const int led_board_two = 5; // D1
+
+// set temp to trigger LED
+int pivot_temp = 23;
 
 // Structure example to receive data
 // Must match the sender structure
@@ -48,6 +64,24 @@ void OnDataRecv(uint8_t * mac_addr, uint8_t *incomingData, uint8_t len) {
            mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
   Serial.println(macStr);
   memcpy(&satelliteData, incomingData, sizeof(satelliteData));
+
+  board_id = satelliteData.id;
+
+  if (satelliteData.id == 1){
+    board_one["ID"] = board["id"];
+    board_one["Temperature"] = satelliteData.temp;
+    board_one["Pressure"] = satelliteData.pressure;
+    board_one["Humidity"] = satelliteData.humidity;
+    board_one["Altitude"] = satelliteData.altitude;
+  }
+
+  if (satelliteData.id == 2){
+    board_two["ID"] = board["id"];
+    board_two["Temperature"] = satelliteData.temp;
+    board_two["Pressure"] = satelliteData.pressure;
+    board_two["Humidity"] = satelliteData.humidity;
+    board_two["Altitude"] = satelliteData.altitude;
+  }
   
   board["id"] = satelliteData.id;
   board["temperature"] = satelliteData.temp;
@@ -57,6 +91,22 @@ void OnDataRecv(uint8_t * mac_addr, uint8_t *incomingData, uint8_t len) {
   board["readingId"] = String(satelliteData.readingId);
   String jsonString = JSON.stringify(board);
   events.send(jsonString.c_str(), "new_data", millis());
+
+  // set condition for lighting LED for both boards independently
+  if (satelliteData.id == 1){
+    if (satelliteData.temp > pivot_temp){
+      digitalWrite(led_board_one, HIGH);
+  } else {
+      digitalWrite(led_board_one, LOW);
+    }  
+  }
+  if (satelliteData.id == 2){
+    if (satelliteData.temp > pivot_temp){
+      digitalWrite(led_board_two, HIGH);
+  } else {
+      digitalWrite(led_board_two, LOW);
+    }  
+  }  
   
   // Serial.printf("Board ID %u: %u bytes\n", satelliteData.id, len);
   // Serial.printf("t value: %4.2f \n", satelliteData.temp);
@@ -77,23 +127,18 @@ const char index_html[] PROGMEM = R"rawliteral(
 <head>
   <title>EcoHomeHealth</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
   <style>
-
     html {
         font-family: sans-serif;
         text-align: center;
     }
-
     #navbar h3{
         color: rgb(2, 2, 2);
         font-size: 1.8em;
     }
-
     p {
         margin: 2px;
     }
-
     .node-grid {
         gap: 10px;
         background-color: #2196F3;
@@ -104,14 +149,12 @@ const char index_html[] PROGMEM = R"rawliteral(
             'temp humidity pressure altitude'
             'footer footer footer footer';
     }
-
     .node-grid div {
         background-color: rgba(255, 255, 255, 0.8);
         text-align: center;
         padding: 10px 0;
         font-size: 22px;
     }
-
     .grid-container {
         display: grid;
         column-gap: 50px;
@@ -119,7 +162,6 @@ const char index_html[] PROGMEM = R"rawliteral(
         background-color: #2196F3;
         padding: 5px;
     }
-
     .grid-item {
         background-color: rgba(255, 255, 255, 0.8);
         border: 1px solid rgba(0, 0, 0, 0.8);
@@ -127,24 +169,19 @@ const char index_html[] PROGMEM = R"rawliteral(
         font-size: 20px;
         text-align: center;
     }
-
     .item1 { grid-area: header; }
     .item2 { grid-area: temp; }
     .item3 { grid-area: humidity; }
     .item4 { grid-area: pressure; }
     .item5 { grid-area: altitude; }
     .item6 { grid-area: footer; }
-
   </style>
 </head>
-
 <body>
   <div id="navbar">
     <h3>EcoHomeHealth</h3>
   </div>
-
   <div class="grid-container">
-
     <div class="node-grid">
         <div class=" grid-item item1"><h4>Location: Living Room (Internal)</h4></div>
         
@@ -158,15 +195,13 @@ const char index_html[] PROGMEM = R"rawliteral(
             <p><span class="reading"><span id="p1"></span> Pa;</span></p>
         </div>
         <div class="grid-item item5">Altitude
-            <p><span class="reading"><span id="a1"></span> m;</span></p>
+            <p><span class="reading"><span id="a1"></span> ft;</span></p>
         </div>  
         <div class="grid-item item6">
             <p class="timestamp">Last Reading: <span id="rt1"></span></p>
         </div>
     </div>
-
     <br><br>
-
     <div class="node-grid">
         <div class=" grid-item item1"><h4>Location: Directly Outside Living Room (External)</h4></div>
         <div class="grid-item item2">Temp
@@ -179,45 +214,15 @@ const char index_html[] PROGMEM = R"rawliteral(
             <p><span class="reading"><span id="p2"></span> Pa;</span></p>
         </div>
         <div class="grid-item item5">Altitude
-            <p><span class="reading"><span id="a2"></span> m;</span></p>
+            <p><span class="reading"><span id="a2"></span> ft;</span></p>
         </div>  
         <div class="grid-item item6">
             <p class="timestamp">Last Reading: <span id="rt2"></span></p>
         </div>
     </div>
   </div>
-  
-
-  <!-- <div>
-    <div id="grid-container">
-
-      <div class="card temperature">
-        <p class="card-title"> Node 1 - Temperature</p>
-        <p><span class="reading"><span id="t1"></span> &deg;C</span></p>
-        <p class="timestamp">Last Reading: <span id="rt1"></span></p>
-      </div>
-
-      <div class="card pressure">
-        <p class="card-title"><i class="fas fa-tint"></i> BOARD #1 - pressure</p>
-        <p><span class="reading"><span id="h1"></span> Pa;</span></p>
-        <p class="timestamp">Last Reading: <span id="rh1"></span></p>
-      </div>
-
-      <div class="card temperature">
-        <p class="card-title"><i class="fas fa-thermometer-half"></i> BOARD #2 - TEMPERATURE</p>
-        <p><span class="reading"><span id="t2"></span> &deg;C</span></p>
-        <p class="timestamp">Last Reading: <span id="rt2"></span></p>
-      </div>
-
-      <div class="card pressure">
-        <p class="card-title"><i class="fas fa-tint"></i> BOARD #2 - pressure</p><p><span class="reading"><span id="h2"></span> Pa;</span></p><p class="timestamp">Last Reading: <span id="rh2"></span></p>
-      </div>
-    </div>
-  </div> -->
-
 
 <script>
-
 function getDateTime() {
   var currentdate = new Date();
   var datetime = currentdate.getDate() + "/"
@@ -228,23 +233,8 @@ function getDateTime() {
   + currentdate.getSeconds();
   return datetime;
 }
-
 if (!!window.EventSource) {
  var source = new EventSource('/events');
- 
- source.addEventListener('open', function(e) {
-  console.log("Events Connected");
- }, false);
-
- source.addEventListener('error', function(e) {
-  if (e.target.readyState != EventSource.OPEN) {
-    console.log("Events Disconnected");
-  }
- }, false);
- 
- source.addEventListener('message', function(e) {
-  console.log("message", e.data);
- }, false);
  
  source.addEventListener('new_data', function(e) {
   console.log("new_data", e.data);
@@ -254,15 +244,14 @@ if (!!window.EventSource) {
   document.getElementById("p"+obj.id).innerHTML = obj.pressure.toFixed(2);
   document.getElementById("a"+obj.id).innerHTML = obj.altitude.toFixed(2);
   document.getElementById("rt"+obj.id).innerHTML = getDateTime();
-  document.getElementById("rh"+obj.id).innerHTML = getDateTime();
  }, false);
  
 }
-
 </script>
-
 </body>
 </html>)rawliteral";
+
+
 
 void setup() {
   // Initialize Serial Monitor
@@ -288,31 +277,41 @@ void setup() {
     return;
   }
   
-  // Once ESPNow is successfully Init, we will register for recv CB to
-  // get recv packer info
+  // if ESPNOW has been initiated, register receive callback
   esp_now_register_recv_cb(OnDataRecv);
 
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send_P(200, "text/html", index_html);
   });
-   
-  events.onConnect([](AsyncEventSourceClient *client){
-    if(client->lastId()){
-      Serial.printf("Client reconnected! Last message ID that it got is: %u\n", client->lastId());
-    }
-    // send event with message "hello!", id current millis
-    // and set reconnect delay to 1 second
-    client->send("hello!", NULL, millis(), 10000);
+
+//  server.on("/json", HTTP_GET, [](AsyncWebServerRequest *request) {
+//    request->send(200, "application/json", "{\"message\":\"Welcome\"}");
+//  });
+
+  server.on("/board-two", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String response;
+    serializeJsonPretty(board_one, response);
+    request->send(200, "application/json", response);
   });
+
+  server.on("/board-one", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String response;
+    serializeJsonPretty(board_two, response);
+    request->send(200, "application/json", response);
+  });
+  
   server.addHandler(&events);
   server.begin();
+
+  pinMode(led_board_one, OUTPUT);
+  pinMode(led_board_two, OUTPUT);
 }
  
 void loop() {
-  static unsigned long lastEventTime = millis();
-  static const unsigned long EVENT_INTERVAL_MS = 5000;
-  if ((millis() - lastEventTime) > EVENT_INTERVAL_MS) {
-    events.send("ping",NULL,millis());
-    lastEventTime = millis();
-  }
+//  static unsigned long lastEventTime = millis();
+//  static const unsigned long EVENT_INTERVAL_MS = 5000;
+//  if ((millis() - lastEventTime) > EVENT_INTERVAL_MS) {
+//    events.send("ping",NULL,millis());
+//    lastEventTime = millis();
+//  }
 }
